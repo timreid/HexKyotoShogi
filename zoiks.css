@@ -1,0 +1,52 @@
+use.board {
+	fill: #D1A131;
+	stroke: white;
+	stroke-width: .05;
+}
+
+use.glasson {
+	pointer-events:none;
+	fill: #0f0;
+	stroke: none;
+	fill-opacity: .33;
+	stroke-width: .05;
+}
+
+use.glassoff {
+	pointer-events:none;
+	display: none;
+}
+
+use.piece {
+	pointer-events:none;
+	fill: #Eace4a;
+	stroke:none;
+}
+
+text.piece {
+	pointer-events:none;
+	text-anchor: middle;
+	font-size: 4.5%;
+	baseline-shift: -4%;
+	font-family:KaiTi;
+	font-weight:bold;
+	text-align:center;
+}
+
+text.king {
+	pointer-events:none;
+	text-anchor: middle;
+	font-size: 6%;
+	baseline-shift: -5%;
+	font-family:KaiTi;
+	font-weight:bold;
+	text-align:center;
+}
+
+body,html {
+	height:100%;
+	width: 100%;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+}
