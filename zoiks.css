@@ -1,26 +1,33 @@
 use.board {
+	pointer-events:none;
 	fill: #D1A131;
 	stroke: white;
 	stroke-width: .05;
 }
 
-use.glasson {
-	pointer-events:none;
-	fill: #0f0;
-	stroke: none;
-	fill-opacity: .33;
+use.on {
+	fill: #0d0;
+	stroke: white;
 	stroke-width: .05;
 }
 
-use.glassoff {
-	pointer-events:none;
+use.off {
 	display: none;
+}
+
+use.back {
+	fill: #080;
+	stroke: white;
+	fill-opacity: .33;
+	stroke-width: .05;
+
 }
 
 use.piece {
 	pointer-events:none;
 	fill: #Eace4a;
 	stroke:none;
+	transition: all 0.75s ease;
 }
 
 text.piece {
@@ -36,7 +43,7 @@ text.piece {
 text.king {
 	pointer-events:none;
 	text-anchor: middle;
-	font-size: 6%;
+	font-size: 5.5%;
 	baseline-shift: -5%;
 	font-family:KaiTi;
 	font-weight:bold;
