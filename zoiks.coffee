@@ -4,23 +4,6 @@ hexScale = 1
 hexWidth = hexScale * 2
 hexHeight = hexScale * Math.sqrt 3
 
-center = (location) ->
-	hand1 = [[0,4],[1,3],[2,2],[3,1],[4,0],[4,-1],[4,-2],[4,-3]]
-	hand2 = [[0,-4],[-1,-3],[-2,-2],[-3,-1],[-4,0],[-4,1],[-4,2],[-4,3]]
-	[x,y] = location
-	#TODO: remove this dark evil hack
-	y = parseInt y
-	switch x
-		when "hand1"
-			x = hand1[y][0]
-			y = hand1[y][1]
-		when "hand2"
-			x = hand2[y][0]
-			y = hand2[y][1]
-	cx = x * 0.75 * hexWidth
-	cy = y * hexHeight + x * hexHeight * 0.5
-	[cx,cy]
-
 hexagonVertices = () ->
 	vertices = ""
 	for n in [0..6]
@@ -44,25 +27,26 @@ pieceVertices = () ->
 	[one,two,three,four,five]
 
 class Piece
-	constructor: (@sides) ->
+	constructor: (@location, @sides) ->
+		@scale = 1
 		@currentSide = @sides[0]
-		[x,y] = @location
-		[cx,cy] = center x,y
+		@inHand = false
+
 		group = document.createElementNS svgns, "g"
 		node = document.createElementNS svgns, "use"
 		node.setAttributeNS xlinkns, "href", "#piece"
 		node.setAttribute "class", "piece"
 		group.appendChild node
 
-		textNode = document.createElementNS svgns, "text"
-		textNode.textContent = @currentSide.symbol
-		if @currentSide.name == "king"
-			textNode.setAttribute "class", "king"
-		else
-			textNode.setAttribute "class", "piece"
-		group.appendChild textNode
+		@textNode = document.createElementNS svgns, "text"
+		@textNode.textContent = @currentSide.symbol
+		@textNode.setAttribute "class", "piece"
+		
+		group.appendChild @textNode
 		@node = group
 		@update()
+
+		@location.setPiece @
 
 	flip: () ->
 		if @currentSide == @sides[0]
@@ -73,149 +57,168 @@ class Piece
 	moves: () ->
 		@currentSide.moves
 
-	move: (destination) ->
-		@location = destination
-
 	render: (svg) ->
 		svg.appendChild @node
+
 	update: () ->
-		[cx,cy] = center @location
+		[cx,cy] = @location.center
 		angle = if @owner == 2 then 180 else 0
-		scale = if @currentSide.name == "king" then 1.15 else 1
-		transform = "rotate(#{angle} #{cx} #{cy}) translate(#{cx} #{cy}) scale(#{scale})"
+		transform = "rotate(#{angle} #{cx} #{cy}) translate(#{cx} #{cy}) scale(#{@scale})"
 		@node.children[1].textContent = @currentSide.symbol
 		@node.setAttribute "transform", transform
 
 
 class SilverBishop extends Piece
-	constructor: (@owner) ->
+	constructor: (@owner, @location) ->
 		silverMoves = [{type: "step", value:1},{type: "step", value:2},{type: "step", value:4},{type: "step", value:6},{type: "step", value:8},{type: "step", value:10},{type: "step", value:12}]
 		bishopMoves = [{type:"ray", value:2},{type:"ray", value:4},{type:"ray", value:6},{type:"ray", value:8},{type:"ray", value:10},{type:"ray", value:12}]
-		if @owner == 1
-			@location = [-1,3]
-		else
-			@location = [1,-3]
-		super [{name:"silver", symbol:"銀", moves:silverMoves},{name:"bishop", symbol:"角",moves:bishopMoves}]
+		super @location, [{name:"silver", symbol:"銀", moves:silverMoves},{name:"bishop", symbol:"角",moves:bishopMoves}]
 
 class King extends Piece
-	constructor: (@owner) ->
+	constructor: (@owner, @location) ->
 		kingMoves = [{type: "step", value:1},{type: "step", value:2},{type: "step", value:3},{type: "step", value:4},{type: "step", value:5},{type: "step", value:6},{type: "step", value:7},{type: "step", value:8},{type: "step", value:9},{type: "step", value:10},{type: "step", value:11},{type: "step", value:12}]
-		if @owner == 1
-			@location = [0,3]
-		else
-			@location = [0,-3]
-		super [{name:"king", symbol:"王", moves:kingMoves},{name:"king", symbol:"王", moves:kingMoves}]
+		super @location, [{name:"king", symbol:"王", moves:kingMoves},{name:"king", symbol:"王", moves:kingMoves}]
+		@scale = 1.15
+		@textNode.setAttribute "class", "king"
+		@update()
+
+class Challenger extends Piece
+	constructor: (@owner, @location) ->
+		kingMoves = [{type: "step", value:1},{type: "step", value:2},{type: "step", value:3},{type: "step", value:4},{type: "step", value:5},{type: "step", value:6},{type: "step", value:7},{type: "step", value:8},{type: "step", value:9},{type: "step", value:10},{type: "step", value:11},{type: "step", value:12}]
+		super @location, [{name:"king", symbol:"玉", moves:kingMoves},{name:"king", symbol:"玉", moves:kingMoves}]
+		@scale = 1.15
+		@textNode.setAttribute "class", "king"
+		@update()
 
 class GoldKnight extends Piece
-	constructor: (@owner) ->
+	constructor: (@owner, @location) ->
 		goldMoves = [{type: "step", value:1},{type: "step", value:2},{type: "step", value:3},{type: "step", value:5},{type: "step", value:7},{type: "step", value:9},{type: "step", value:11}, {type:"step", value:12}]
 		knightMoves = [{type:"jump", value: 1}, {type:"jump", value: 2}]
-		if @owner == 1
-			@location = [1,2]
-		else
-			@location = [-1,-2]
-		super [{name:"gold", symbol:"金", moves:goldMoves},{name:"knight", symbol:"桂",moves:knightMoves}]
+		super @location, [{name:"gold", symbol:"金", moves:goldMoves},{name:"knight", symbol:"桂",moves:knightMoves}]
 
 class PawnRook extends Piece
-	constructor: (@owner) ->
+	constructor: (@owner, @location) ->
 		pawnMoves = [{type:"step", value:1}]
 		rookMoves = [{type:"ray", value:1},{type:"ray", value:3},{type:"ray", value:5},{type:"ray", value:7},{type:"ray", value:9},{type:"ray", value:11}]
-		if @owner == 1
-			@location = [2,1]
-		else
-			@location = [-2,-1]
-		super [{name:"pawn", symbol:"歩", moves:pawnMoves},{name:"rook", symbol:"飛",moves:rookMoves}]
+		super @location, [{name:"pawn", symbol:"歩", moves:pawnMoves},{name:"rook", symbol:"飛",moves:rookMoves}]
 
 class TokinLance extends Piece
-	constructor: (@owner) ->
+	constructor: (@owner, @location) ->
 		tokinMoves = [{type: "step", value:1},{type: "step", value:2},{type: "step", value:3},{type: "step", value:5},{type: "step", value:7},{type: "step", value:9},{type: "step", value:11}, {type:"step", value:12}]
 		lanceMoves = [{type:"ray", value:1}]
-		if @owner == 1
-			@location = [-2,3]
-		else
-			@location = [2,-3]
-		super [{name:"tokin", symbol:"と", moves:tokinMoves},{name:"lance", symbol:"香",moves:lanceMoves}]
-
-
+		super @location, [{name:"tokin", symbol:"と", moves:tokinMoves},{name:"lance", symbol:"香",moves:lanceMoves}]
 
 class HexKyotoShogi
 	constructor: () ->
-		initSVG = () ->
-			body = (document.getElementsByTagName "body")[0]
-			svg = document.createElementNS svgns, "svg"
-			svg.setAttribute "height", "100%"
-			svg.setAttribute "width", "100%"
-			gridHeight = (Math.sqrt 3) * 9.5
-			svg.setAttribute "viewBox", "-5 #{-gridHeight/2.0} 10 #{gridHeight}"
-			body.appendChild svg
+		body = (document.getElementsByTagName "body")[0]
+		@svg = document.createElementNS svgns, "svg"
+		@svg.setAttribute "height", "100%"
+		@svg.setAttribute "width", "100%"
+		gridHeight = (Math.sqrt 3) * 9.5
+		@svg.setAttribute "viewBox", "-5 #{-gridHeight/2.0} 10 #{gridHeight}"
+		body.appendChild @svg
+		defs = document.createElementNS svgns, "defs"
+		hex = document.createElementNS svgns, "polygon"
+		hex.setAttribute "id", "hexagon"
+		hex.setAttribute "points", hexagonVertices()
+		defs.appendChild hex
+		piece = document.createElementNS svgns, "polygon"
+		piece.setAttribute "id", "piece"
+		piece.setAttribute "points", pieceVertices()
+		defs.appendChild piece
+		@svg.appendChild defs
 
-			defs = document.createElementNS svgns, "defs"
 
-			hex = document.createElementNS svgns, "polygon"
-			hex.setAttribute "id", "hexagon"
-			hex.setAttribute "points", hexagonVertices()
-			defs.appendChild hex
-
-			piece = document.createElementNS svgns, "polygon"
-			piece.setAttribute "id", "piece"
-			piece.setAttribute "points", pieceVertices()
-
-			defs.appendChild piece
-
-			svg.appendChild defs
-			svg
-		@svg = initSVG()
 		@board = new Board()
-		@board.render(@svg)
+
 		@pieces = [
-			new King(1),
-			new King(2),
-			new SilverBishop(1),
-			new SilverBishop(2),
-			new GoldKnight(1),
-			new GoldKnight(2),
-			new PawnRook(1),
-			new PawnRook(2),
-			new TokinLance(1),
-			new TokinLance(2)
+			new Challenger 1, (@board.getHex [0,3])
+			new SilverBishop 1, (@board.getHex [-1,3])
+			new GoldKnight 1, (@board.getHex [1,2])
+			new TokinLance 1, (@board.getHex [-2,3])
+			new PawnRook 1, (@board.getHex [2,1])
+			new King 2, (@board.getHex [0,-3])
+			new SilverBishop 2, (@board.getHex [1,-3])
+			new GoldKnight 2, (@board.getHex [-1,-2])
+			new TokinLance 2, (@board.getHex [2,-3])
+			new PawnRook 2, (@board.getHex [-2,-1])
 		]
+
+		@board.render(@svg)
+
 		for piece in @pieces
 			piece.render(@svg)
+
 		@state = {currentPlayer: 1, phase: "selectPiece"}
+
+		firebase = new Firebase "https://hexkyotoshogi.firebaseio.com/"
+		@events = firebase.child "events"
+		@events.on "child_added", (snapshot, previousName) => @handleMove snapshot.val()
+
+		auth = new FirebaseSimpleLogin firebase, (error, user) =>
+		  if error then console.log error
+		  else
+		  	if user then console.log('User ID: ' + user.uid + ', Provider: ' + user.provider)
+		  	else console.log "logged out, for some reason"
 
 		@selectPiece()
 
-	pieceAt: (location) ->
-			target = undefined
-			for own i,piece of @pieces
-				if piece.location[0] == location[0] and piece.location[1] == location[1]
-					target = piece
-			target
-
-	capture: (piece) ->
-		#change owner
-		if piece.owner == 1
-			owner = 2
-			hand = @board.hand2
+	handleMove: (move) ->
+		console.log "incoming move: ", move
+		#called when firebase sends us a new move
+		#todo: handle moves from hand
+		#todo: error checking?
+		if move.from == "hand"
+			switch @state.currentPlayer
+				when 1 then hand = @board.hand1
+				when 2 then hand = @board.hand2
+			for piece in hand.locations
+				if piece.currentSide.name == move.piece
+					movingPiece = piece
 		else
-			owner = 1
-			hand = @board.hand1
-		piece.owner = owner
-		hand.add piece
+			#we are on the board
+			fromHex = @board.getHex move.from
+			movingPiece = fromHex.getPiece()
+		
+		toHex = @board.getHex move.to
+		@move movingPiece, toHex
+		@nextPlayer()
 
-	move: (piece, destination) ->
-		#handle moving out of hand
-		if piece.location[0] == "hand1"
-			@board.hand1.remove piece
-		if piece.location[0] == "hand2"
-			@board.hand2.remove piece
-		#handle capture
-		victim = @pieceAt destination
-		if victim?
-			@capture victim
-		piece.move destination
+		@selectPiece()
+
+	nextPlayer: ->
+		switch @state.currentPlayer
+			when 1 then @state.currentPlayer = 2
+			when 2 then @state.currentPlayer = 1
+
+	move: (piece, hex) ->
+		if piece.inHand
+			switch piece.owner
+				when 1 then @board.hand1.remove piece
+				when 2 then @board.hand2.remove piece
+		else
+			piece.location.removePiece()
+			victim = hex.getPiece()
+			if victim? then @capture victim
+
+		if hex.inHand
+			switch piece.owner
+				when 1 then @hand1.add piece
+				when 2 then @hand2.add piece
+		else
+			hex.setPiece piece
 		piece.flip()
 		piece.update()
+
+	capture: (piece) ->
+		if piece.owner == 1
+			piece.owner = 2
+			piece.location.removePiece()
+			@board.hand2.add piece
+		else
+			piece.owner = 1
+			piece.location.removePiece()
+			@board.hand1.add piece
 
 	selectPiece: () ->
 		console.log "selectPiece"
@@ -225,9 +228,8 @@ class HexKyotoShogi
 
 		for piece in @pieces
 			if piece.owner == @state.currentPlayer
-				hex = @board.getHex piece.location
-				hex.glassOn()
-				hex.addClickListener (makeClickHandler piece)
+				piece.location.glassOn()
+				piece.location.addClickListener (makeClickHandler piece)
 
 	selectMove: (selectedPiece) ->
 		console.log "selectMove", selectedPiece
@@ -239,55 +241,44 @@ class HexKyotoShogi
 		makeBackClickHandler = () =>
 			(event) => @selectPiece()
 
-		backHex = @board.getHex selectedPiece.location
-		backHex.glassOn()
-		backHex.addClickListener makeBackClickHandler()
+		selectedPiece.location.glassOn()
+		selectedPiece.location.addClickListener makeBackClickHandler()
 
-
-		LLL = (@validMoves selectedPiece)
-		console.log "valid moves are:", LLL
-		for move in LLL
-			hex = @board.getHex move
+		for hex in @validMoves selectedPiece
+			# hex = @board.getHex move
 			hex.glassOn()
-			hex.addClickListener (makeClickHandler move)
+			#this was move before it was hex... did it work out?
+			hex.addClickListener (makeClickHandler hex)
 
 
-	confirmMove: (selectedPiece, selectedMove) ->
-		console.log "confirmMove", selectedPiece, selectedMove
+	confirmMove: (selectedPiece, moveHex) ->
+		console.log "confirmMove", selectedPiece, moveHex
 		@board.clearGlass()
 
 		makeClickHandler = () =>
-			(event) =>
-				console.log "confirmed move"
-				@performMove selectedPiece, selectedMove
+			(event) => @pushMove selectedPiece, moveHex
 		
 		makeBackClickHandler = () =>
-			(event) =>
-				console.log "going back"
-				@selectMove selectedPiece
+			(event) => @selectMove selectedPiece
 		
-		hex = @board.getHex selectedMove
-		hex.glassOn()
-		hex.addClickListener (makeClickHandler piece)
+		moveHex.glassOn()
+		moveHex.addClickListener makeClickHandler()
 
-		hex = @board.getHex selectedPiece.location
-		hex.glassOn()
-		hex.addClickListener (makeBackClickHandler piece)
+		selectedPiece.location.glassOn()
+		selectedPiece.location.addClickListener (makeBackClickHandler selectedPiece)
 
-	performMove: (selectedPiece, selectedMove) ->
-		console.log "perform move", selectedPiece, selectedMove
-		@board.clearGlass()
+	pushMove: (piece, hex) ->
+		console.log "pushing move", piece, hex
+		#todo: push to firebase
+		@events.push
+			piece: piece.currentSide.name
+			from: if piece.inHand then "hand" else piece.location.index
+			to: hex.index
 
-		@move selectedPiece, selectedMove
-		if @state.currentPlayer == 1
-			@state.currentPlayer = 2
-		else
-			@state.currentPlayer = 1
-		@selectPiece()
 
 	validMoves: (piece) ->
-		stepFrom = (source, direction) =>
-			[x,y] = source
+		step = (source, direction) =>
+			[x,y] = source.index
 			location = switch direction
 				when 1 then [x, y - 1] unless x + y == -3 or y == -3
 				when 2 then [x + 1, y - 2] unless y < -1 or x + y == -3
@@ -301,77 +292,75 @@ class HexKyotoShogi
 				when 10 then [x - 2, y + 1] unless x < -1 or x + y == -3 or y == 3
 				when 11 then [x - 1, y] unless x == -3 or x + y == -3
 				when 12 then [x - 1, y - 1] unless x + y < -1 or x == -3 or y == -3
-			if location? and (@pieceAt location)?.owner != @state.currentPlayer
-				location
+			if location? and (@board.getHex location).getPiece()?.owner != @state.currentPlayer
+				@board.getHex location
 			else
 				undefined
 
 		ray = (source, direction) =>
 			locations = []
-			step = (location) =>
-				if location != undefined
-					who = @pieceAt location
-					if who?
-						if who.owner != @state.currentPlayer
-							locations.push location
-					else
-						#no one here
+			cast = (location) =>
+				if location?
+					if !location.getPiece()
 						locations.push location
-						next = stepFrom location, direction
-						step next
-
-			step (stepFrom source, direction)
+						cast (step location, direction)
+					else
+						if location.getPiece().owner != @state.currentPlayer
+							locations.push location
+			cast (step source, direction)
 			locations
 
-		processMove = (player, source, move) ->
+		processMove = (move) ->
 			#player move isomorphism: player 2's directions are 6 more than player 1, mod 12
-			value = move.value
-			if player == 2 then value = (value + 6) % 12
-			[x,y] = source
+			direction = move.value
+			if piece.owner == 2 then direction = (direction + 6) % 12
 			moves = switch move.type
 				when "step"
-					d = stepFrom source, value
-					if d?
-						[d]
-					else
-						false
+					x = step piece.location, direction
+					if x? then [x] else []
 
 				#the knight jumps are handled as two steps
 				#7 and 8 are synthetic versions for player 2
 				when "jump"
-					switch value
-						when 1 then [stepFrom (stepFrom source, 1), 2]
-						when 2 then [stepFrom (stepFrom source, 1), 12]
-						when 7 then [stepFrom (stepFrom source, 7), 8]
-						when 8 then [stepFrom (stepFrom source, 7), 6]
-
+					switch direction
+						when 1
+							x = step (step piece.location, 1), 2
+							if x? then [x] else []
+						when 2
+							x = step (step piece.location, 1), 12
+							if x? then [x] else []
+						when 7
+							x = step (step piece.location, 7), 8
+							if x? then [x] else []
+						when 8
+							x = step (step piece.location, 7), 6
+							if x? then [x] else []
 				when "ray"
-					ray source, value
+					ray piece.location, direction
 			moves
 
 		locations = []
-		if piece.location[0] == "hand1" or piece.location[0] == "hand2"
+		if piece.inHand
 			#any empty space is valid
 			for col in @board.hexes
 				for hex in col
-					who = @pieceAt hex.location
-					if !who? then locations.push hex.location
+					if !hex.getPiece()? then locations.push hex
 		else
 			for move in piece.moves()
-				validMoves = processMove piece.owner, piece.location, move
-				console.log "valid moves:", validMoves
-				if validMoves
-					locations = locations.concat validMoves
+				locations = locations.concat (processMove move)
 		locations
 
 class Hex
-	constructor: (@location, style) ->
-		[cx,cy] = center @location
+	constructor: (@index, style) ->
+		[x,y] = @index
+		cx = x * 0.75 * hexWidth
+		cy = y * hexHeight + x * hexHeight * 0.5
+		@center = [cx,cy]
 		@glassState = "off"
 
 		@node = document.createElementNS svgns, "g"
 		@node.setAttribute "transform", "translate(#{"" + cx + " " + cy})"
-		@node.setAttribute "data-id", @location
+		@node.setAttribute "data-id", @index
 
 		board = document.createElementNS svgns, "use"
 		board.setAttributeNS xlinkns, "href", "#hexagon"
@@ -389,6 +378,18 @@ class Hex
 
 	update: () ->
 		@glass.setAttribute "class", @glassState
+		if @piece? then @piece.update()
+
+	getPiece: () ->
+		@piece
+
+	setPiece: (piece) ->
+		@piece = piece
+		piece.location = @
+
+	removePiece: () ->
+		delete @piece?.location
+		delete @piece
 
 	glassOn: () ->
 		@glassState = 'on'
@@ -409,18 +410,23 @@ class Hex
 
 
 class Hand
-	constructor: (@location) ->
+	constructor: (@owner) ->
+		@indices = switch @owner
+			when 1 then [[0,4],[1,3],[2,2],[3,1],[4,0],[4,-1],[4,-2],[4,-3]]
+			when 2 then [[0,-4],[-1,-3],[-2,-2],[-3,-1],[-4,0],[-4,1],[-4,2],[-4,3]]
 		@locations = []
 		@hexes = for i in [0..7]
-			new Hex [@location,i], "off"
+			hex = new Hex @indices[i], "off"
+			hex.inHand = true
+			hex
 		
-	getHex: (location) ->
-		[x,y] = location
-		@hexes[y]
+	getHex: (i) -> @hexes[i]
 
 	add: (piece) ->
-		@locations.push piece
-		piece.location = [@location, @locations.length]
+		i = @locations.push piece
+		piece.location = @getHex i
+		piece.inHand = true
+		#do we need this update?
 		@update()
 
 	remove: (piece) ->
@@ -429,6 +435,8 @@ class Hand
 			if maybe == piece
 				n = i
 		@locations.splice n,1
+		piece.inHand = false
+		piece.location.removePiece()
 		@update()
 
 	render: (svg) ->
@@ -437,7 +445,7 @@ class Hand
 
 	update: () ->
 		for i,piece of @locations
-			piece.location = [@location,i]
+			piece.location = @getHex i
 			piece.update()
 
 	clearGlass: () ->
@@ -453,19 +461,29 @@ class Board
 				[x,y] = [i - 3, j - Math.min i,3]
 				column.push (new Hex [x,y], "board")
 			@hexes.push column
-		@hand1 = new Hand("hand1")
-		@hand2 = new Hand("hand2")
+
+		@hand1 = new Hand(1)
+		@hand2 = new Hand(2)
 	
-	getHex: (location) ->
-		[x,y] = location
-		console.log "getHex", location
-		switch x
-			when "hand1" then @hand1.getHex location
-			when "hand2" then @hand2.getHex location
+	getHex: (index) ->
+		findIt = (thing) ->
+
+		console.log "getHex", index
+		[x,y] = index
+		if x > 3 or y > 3 or x + y > 3
+			#we are talking about the hand
+			i = @hand1.indices.indexOf index
+			if i == -1
+				i = @hand2.indices.indexOf index
+				if i == -1 then throw new Error "no good man"
+				hex = @hand2.getHex i
 			else
-				i = x + 3
-				j = y + Math.min i,3
-				@hexes[i][j]
+				hex = @hand1.getHex i
+		else	
+			i = x + 3
+			j = y + Math.min i,3
+			hex = @hexes[i][j]
+		hex
 
 	clearGlass: () ->
 		for col in @hexes
